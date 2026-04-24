@@ -1,0 +1,978 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Canopy Sensors - Dashboard</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#22c55e">
+<link rel="icon" href="logo.png">
+<link rel="apple-touch-icon" href="logo.png">
+<style>
+:root {
+  --bg: #0a0f1a;
+  --surface: #111827;
+  --surface2: #1a2332;
+  --border: #1e293b;
+  --text: #e2e8f0;
+  --text-dim: #94a3b8;
+  --accent: #22c55e;
+  --accent-glow: rgba(34,197,94,0.15);
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --info: #3b82f6;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; background:var(--bg); color:var(--text);
+  min-height:100vh; padding:16px; max-width:900px; margin:0 auto;
+}
+h1 { font-size:1.4rem; font-weight:700; letter-spacing:-0.02em; }
+h2 { font-size:1rem; font-weight:600; color:var(--text-dim); margin-bottom:12px; text-transform:uppercase; letter-spacing:0.05em; font-size:0.75rem; }
+
+/* Header */
+.header {
+  display:flex; justify-content:space-between; align-items:center;
+  padding:16px 0; margin-bottom:20px; border-bottom:1px solid var(--border);
+}
+.header .logo { display:flex; align-items:center; gap:10px; }
+.header .logo-icon {
+  width:36px; height:36px; border-radius:10px; overflow:hidden;
+}
+.status-dot {
+  width:10px; height:10px; border-radius:50%; display:inline-block;
+  margin-right:6px; vertical-align:middle;
+}
+.status-dot.connected { background:var(--accent); box-shadow:0 0 8px var(--accent); }
+.status-dot.disconnected { background:var(--danger); }
+
+/* Connect Button */
+#connectBtn {
+  background:var(--accent); color:#000; border:none; padding:10px 20px;
+  border-radius:8px; font-weight:600; font-size:0.9rem; cursor:pointer;
+  transition:all 0.2s; font-family:inherit;
+}
+#connectBtn:hover { transform:translateY(-1px); box-shadow:0 4px 12px var(--accent-glow); }
+#connectBtn.connected { background:#475569; color:#fff; }
+#connectBtn:disabled { opacity:0.5; cursor:not-allowed; transform:none; }
+
+/* Cards Grid - compact stats bar */
+.cards { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px; }
+.card {
+  background:var(--surface); border:1px solid var(--border); border-radius:8px;
+  padding:8px 14px; display:flex; align-items:center; gap:8px;
+}
+.card .label { font-size:0.6rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-dim); }
+.card .value { font-size:1rem; font-weight:700; }
+.card .sub { font-size:0.65rem; color:var(--text-dim); margin-left:4px; }
+
+/* Node Cards */
+.nodes { display:grid; grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); gap:12px; margin-bottom:24px; }
+.node-card {
+  background:var(--surface); border:1px solid var(--border); border-radius:12px;
+  padding:16px; position:relative; overflow:hidden; cursor:pointer; transition:border-color 0.2s;
+}
+.node-card.selected { border-color:var(--accent); box-shadow:0 0 12px var(--accent-glow); }
+.node-card .node-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+.node-card .node-name { font-weight:600; font-size:0.95rem; }
+.node-card .node-purpose {
+  font-size:0.65rem; text-transform:uppercase; letter-spacing:0.1em;
+  padding:3px 8px; border-radius:4px; font-weight:600;
+}
+.node-purpose.TRAP { background:rgba(245,158,11,0.15); color:#f59e0b; }
+.node-purpose.FEEDER { background:rgba(59,130,246,0.15); color:#3b82f6; }
+.node-purpose.GATE { background:rgba(139,92,246,0.15); color:#8b5cf6; }
+.node-card .node-stats { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.node-stat .stat-label { font-size:0.65rem; color:var(--text-dim); text-transform:uppercase; }
+.node-stat .stat-value { font-size:0.9rem; font-weight:600; }
+.node-card .active-indicator {
+  position:absolute; top:0; left:0; right:0; height:3px;
+  background:var(--accent); animation:pulse-bar 2s ease-in-out infinite;
+}
+/* Hub Card */
+.hub-card {
+  background:var(--surface); border:1px solid var(--border); border-radius:12px;
+  padding:16px; position:relative; overflow:hidden; margin-bottom:16px;
+}
+.hub-card .hub-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+.hub-card .hub-name { font-weight:600; font-size:1rem; }
+.hub-card .hub-status-badge {
+  font-size:0.65rem; text-transform:uppercase; letter-spacing:0.1em;
+  padding:3px 10px; border-radius:4px; font-weight:600;
+}
+.hub-status-badge.online { background:rgba(34,197,94,0.15); color:var(--accent); }
+.hub-status-badge.offline { background:rgba(239,68,68,0.15); color:var(--danger); }
+.hub-card .hub-stats { display:grid; grid-template-columns:repeat(5,1fr); gap:8px; }
+@media (max-width:500px) { .hub-card .hub-stats { grid-template-columns:repeat(3,1fr); } }
+.hub-card .active-indicator {
+  position:absolute; top:0; left:0; right:0; height:3px;
+  background:var(--accent); animation:pulse-bar 2s ease-in-out infinite;
+}
+@keyframes pulse-bar { 0%,100%{opacity:0.4} 50%{opacity:1} }
+
+/* Event Log */
+.event-log { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:16px; margin-bottom:24px; }
+.collapsible-body { display:none; }
+.collapsible-body.open { display:block; }
+.toggle-btn { background:none; border:none; color:var(--text-dim); cursor:pointer; font-size:0.7rem; font-family:inherit; }
+.event-log .log-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+.event-list { max-height:400px; overflow-y:auto; }
+.event-item {
+  display:grid; grid-template-columns:140px 80px 1fr 60px;
+  gap:8px; padding:8px 0; border-bottom:1px solid var(--border);
+  font-size:0.8rem; align-items:center;
+}
+.event-item:last-child { border-bottom:none; }
+.event-item .time { color:var(--text-dim); font-variant-numeric:tabular-nums; }
+.event-item .node { font-weight:600; }
+.event-item .event-type { font-weight:500; }
+.event-type.TRIGGERED { color:var(--warning); }
+.event-type.HEARTBEAT { color:var(--accent); }
+.event-type.BOOT { color:var(--info); }
+.event-item .rssi { color:var(--text-dim); text-align:right; font-variant-numeric:tabular-nums; }
+
+/* Sync Status Bar */
+.sync-bar {
+  background:var(--surface2); border-radius:8px; padding:12px 16px;
+  margin-bottom:24px; font-size:0.8rem; color:var(--text-dim);
+  display:flex; justify-content:space-between; align-items:center;
+}
+.sync-bar .sync-status { display:flex; align-items:center; gap:8px; }
+
+/* Clear button */
+.clear-btn {
+  background:none; border:1px solid var(--border); color:var(--text-dim);
+  padding:4px 12px; border-radius:6px; font-size:0.7rem; cursor:pointer;
+  font-family:inherit; transition:all 0.2s;
+}
+.clear-btn:hover { border-color:var(--accent); color:var(--accent); }
+
+/* Scrollbar */
+::-webkit-scrollbar { width:6px; }
+::-webkit-scrollbar-track { background:var(--surface); }
+::-webkit-scrollbar-thumb { background:#334155; border-radius:3px; }
+
+/* Responsive */
+@media(max-width:600px) {
+  .cards { grid-template-columns:1fr 1fr; }
+  .nodes { grid-template-columns:1fr; }
+  .event-item { grid-template-columns:1fr 1fr; gap:4px; font-size:0.75rem; }
+  .event-item .rssi { display:none; }
+}
+/* Chart */
+.chart-container { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:16px; margin-bottom:24px; }
+.chart-container canvas { width:100%; height:250px; }
+.filter-bar {
+  background:var(--surface); border:1px solid var(--border); border-radius:12px;
+  padding:12px 16px; margin-bottom:16px; display:flex; flex-wrap:wrap; align-items:center; gap:8px;
+}
+.filter-bar .filter-label {
+  font-size:0.65rem; text-transform:uppercase; letter-spacing:0.1em; color:var(--text-dim);
+  font-weight:600; margin-right:4px;
+}
+.filter-bar .day-pill {
+  font-size:0.75rem; padding:6px 14px; border-radius:20px; cursor:pointer;
+  border:1px solid var(--border); background:var(--bg); color:var(--text-dim);
+  transition:all 0.25s; user-select:none; display:inline-flex; align-items:center; gap:5px;
+}
+.filter-bar .day-pill:hover { border-color:#475569; color:var(--text); }
+.filter-bar .day-pill.active { color:#fff; border-color:transparent; font-weight:600; }
+.filter-bar .day-pill .dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.filter-bar .node-pill {
+  font-size:0.75rem; padding:6px 14px; border-radius:20px; cursor:pointer;
+  border:1px solid var(--border); background:var(--bg); color:var(--text-dim);
+  transition:all 0.25s; user-select:none;
+}
+.filter-bar .node-pill:hover { border-color:#475569; color:var(--text); }
+.filter-bar .node-pill.active { background:var(--accent); color:#000; border-color:var(--accent); font-weight:600; }
+.filter-bar .sep { width:1px; height:20px; background:var(--border); margin:0 6px; }
+.modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:100; display:none; align-items:center; justify-content:center; }
+.modal-overlay.open { display:flex; }
+.modal { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:24px; width:90%; max-width:400px; }
+.modal h2 { margin-bottom:16px; color:var(--text); font-size:1rem; }
+.modal label { font-size:0.75rem; color:var(--text-dim); display:block; margin-bottom:4px; margin-top:12px; }
+.modal input { width:100%; padding:8px 12px; background:var(--surface2); border:1px solid var(--border); border-radius:6px; color:var(--text); font-family:inherit; font-size:0.85rem; }
+.modal input:focus { outline:none; border-color:var(--accent); }
+.modal-actions { display:flex; gap:8px; margin-top:20px; justify-content:flex-end; }
+.modal-actions button { padding:8px 16px; border-radius:6px; font-family:inherit; font-size:0.8rem; cursor:pointer; border:none; }
+.btn-primary { background:var(--accent); color:#000; font-weight:600; }
+.btn-secondary { background:var(--surface2); color:var(--text-dim); border:1px solid var(--border) !important; }
+/* Settings gear */
+.settings-btn { background:none; border:none; color:var(--text-dim); font-size:1.2rem; cursor:pointer; padding:4px; }
+.settings-btn:hover { color:var(--text); }
+/* Splash screen */
+.splash { position:fixed; inset:0; z-index:200; background:var(--bg); display:flex; flex-direction:column; align-items:center; justify-content:center; transition:opacity 0.5s; }
+.splash.hide { opacity:0; pointer-events:none; }
+.splash img { width:80px; height:80px; border-radius:16px; margin-bottom:16px; }
+.splash h1 { font-size:1.4rem; margin-bottom:8px; }
+.splash p { color:var(--text-dim); font-size:0.85rem; }
+.spinner { width:24px; height:24px; border:3px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin 0.8s linear infinite; margin-top:20px; }
+@keyframes spin { to { transform:rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<!-- Splash Screen -->
+<div class="splash" id="splash">
+  <img src="logo.png" alt="Canopy">
+  <h1>Canopy</h1>
+  <p>Loading sensor data...</p>
+  <div class="spinner"></div>
+</div>
+
+<!-- Header -->
+<div class="header">
+  <div class="logo">
+    <div class="logo-icon"><img src="logo.png" style="width:100%;height:100%;object-fit:cover;" alt="Canopy"></div>
+    <div>
+      <h1>Canopy</h1>
+      <div id="bleStatus" style="font-size:0.75rem;color:var(--text-dim);">
+        <span class="status-dot disconnected" id="statusDot"></span> Disconnected
+        <span id="hubBattery" style="margin-left:8px;display:none;"></span>
+      </div>
+    </div>
+  </div>
+  <button id="connectBtn" onclick="toggleConnection()">Connect to Hub</button>
+  <button id="installBtn" onclick="installApp()" style="display:none;background:var(--accent);color:#000;font-weight:700;" title="Install App">📲 Install</button>
+  <button class="settings-btn" onclick="openSettings()" title="Settings">&#9881;</button>
+</div>
+
+<!-- iOS/BLE Warning Banner -->
+<div id="iosWarning" style="display:none;background:rgba(239,68,68,0.15);border:1px solid var(--danger);border-radius:12px;padding:12px 16px;margin:0 16px;color:var(--danger);font-size:0.85rem;text-align:center;">
+  ⚠️ <strong>iPhone/iPad detected.</strong> Apple does not support Web Bluetooth. Use an <strong>Android phone</strong> or <strong>desktop Chrome</strong> to sync with the hub.
+</div>
+
+<!-- Summary Cards -->
+<div class="cards" id="summaryCards">
+  <div class="card"><div class="label">Nodes</div><div class="value" id="activeNodes">0</div></div>
+</div>
+
+<!-- Hub Status -->
+<div class="hub-card" id="hubCard" style="display:none;">
+  <div class="active-indicator" id="hubIndicator"></div>
+  <div class="hub-header">
+    <span class="hub-name" id="hubNameDisplay">📡 Canopy Hub</span>
+    <span class="hub-status-badge online" id="hubStatusBadge">Online</span>
+  </div>
+  <div class="hub-stats">
+    <div class="node-stat"><div class="stat-label">Battery</div><div class="stat-value" id="hubBattValue">-</div></div>
+    <div class="node-stat"><div class="stat-label">SD Card</div><div class="stat-value" id="hubSdStatus">-</div></div>
+    <div class="node-stat"><div class="stat-label">Triggers</div><div class="stat-value" id="hubEventCount">-</div></div>
+    <div class="node-stat"><div class="stat-label">Total Triggers</div><div class="stat-value" id="hubTotalTriggers">-</div></div>
+    <div class="node-stat"><div class="stat-label">Uptime</div><div class="stat-value" id="hubUptime">-</div></div>
+  </div>
+</div>
+
+<!-- Node Cards -->
+<div class="nodes" id="nodesContainer">
+  <div class="node-card" style="border-style:dashed;text-align:center;color:var(--text-dim);padding:32px;">
+    Connect to hub to see nodes
+  </div>
+</div>
+
+<!-- Chart Filters -->
+<div class="filter-bar" id="chartFilters"></div>
+
+<!-- Activity Chart -->
+<div class="chart-container">
+  <div class="log-header">
+    <h2 style="margin-bottom:0;">Activity Pattern</h2>
+    <span style="font-size:0.7rem;color:var(--text-dim);">Last 7 days - triggers per 15 min</span>
+  </div>
+  <canvas id="activityChart" height="250"></canvas>
+</div>
+
+<!-- Sync Bar -->
+<div class="sync-bar" id="syncBar">
+  <div class="sync-status">
+    <span id="syncMessage">Connect to hub to sync event data</span>
+  </div>
+  <button class="clear-btn" onclick="requestSync()" id="syncBtn" style="margin-right:8px;">Sync Now</button>
+  <button class="clear-btn" onclick="sendCommand('RESET_SYNC')" style="margin-right:8px;">Reset Sync</button>
+  <button class="clear-btn" onclick="sendCommand('DUMP')" style="margin-right:8px;">Dump File</button>
+  <button class="clear-btn" onclick="if(confirm('Clear ALL hub logs?'))sendCommand('CLEAR_LOG')" style="margin-right:8px;">Clear Hub Log</button>
+  <button class="clear-btn" onclick="clearAllData()">Clear Local</button>
+</div>
+
+<!-- Event Log (collapsible) -->
+<div class="event-log">
+  <div class="log-header" onclick="document.getElementById('eventBody').classList.toggle('open')" style="cursor:pointer;">
+    <h2 style="margin-bottom:0;">Event Log <span id="eventLogCount" style="font-weight:400;font-size:0.7rem;color:var(--text-dim);">0 events</span></h2>
+    <button class="toggle-btn">Show/Hide</button>
+  </div>
+  <div class="collapsible-body" id="eventBody">
+    <div class="event-list" id="eventList"><div style="text-align:center;color:var(--text-dim);padding:32px;font-size:0.85rem;">No events recorded yet</div></div>
+  </div>
+</div>
+
+<!-- Debug Log (collapsible) -->
+<div class="event-log" id="debugSection">
+  <div class="log-header" onclick="document.getElementById('debugBody').classList.toggle('open')" style="cursor:pointer;">
+    <h2 style="margin-bottom:0;">BLE Debug Log</h2>
+    <div><button class="clear-btn" onclick="event.stopPropagation();document.getElementById('debugLog').textContent=''">Clear</button> <button class="toggle-btn">Show/Hide</button></div>
+  </div>
+  <div class="collapsible-body" id="debugBody">
+    <pre id="debugLog" style="max-height:200px;overflow-y:auto;font-size:0.7rem;color:var(--accent);white-space:pre-wrap;word-break:break-all;"></pre>
+  </div>
+</div>
+
+<!-- Settings Modal -->
+<div class="modal-overlay" id="settingsModal">
+  <div class="modal">
+    <h2>Settings</h2>
+    <div id="nodeNameSettings"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeSettings()">Cancel</button>
+      <button class="btn-primary" onclick="saveSettings()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+//  Nordic UART Service UUIDs
+// ============================================================
+const NUS_SERVICE    = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+const NUS_RX_CHAR    = '6e400002-b5a3-f393-e0a9-e50e24dcca9e'; // Write to device
+const NUS_TX_CHAR    = '6e400003-b5a3-f393-e0a9-e50e24dcca9e'; // Notify from device
+
+// ============================================================
+//  State
+// ============================================================
+let bleDevice = null;
+let bleServer = null;
+let txCharacteristic = null;
+let rxCharacteristic = null;
+let isConnected = false;
+let isSyncing = false;
+let incomingBuffer = '';
+let syncDataBuffer = '';  // Accumulates ALL data during sync
+let lastSyncTriggers = {};  // Per-node trigger count from last sync
+
+// Persistent data (localStorage)
+let events = JSON.parse(localStorage.getItem('canopy_events') || '[]');
+let nodes = JSON.parse(localStorage.getItem('canopy_nodes') || '{}');
+let nodeNames = JSON.parse(localStorage.getItem('canopy_node_names') || '{}');
+
+function getNodeName(id) { return nodeNames[id] || id; }
+
+// ============================================================
+//  BLE Connection
+// ============================================================
+async function toggleConnection() {
+  if (isConnected) {
+    disconnect();
+  } else {
+    await connect();
+  }
+}
+
+async function connect() {
+  const btn = document.getElementById('connectBtn');
+  btn.disabled = true;
+  btn.textContent = 'Connecting...';
+
+  try {
+    bleDevice = await navigator.bluetooth.requestDevice({
+      filters: [{ services: [NUS_SERVICE] }],
+      optionalServices: [NUS_SERVICE]
+    });
+
+    bleDevice.addEventListener('gattserverdisconnected', onDisconnected);
+    bleServer = await bleDevice.gatt.connect();
+    const service = await bleServer.getPrimaryService(NUS_SERVICE);
+
+    rxCharacteristic = await service.getCharacteristic(NUS_RX_CHAR);
+    txCharacteristic = await service.getCharacteristic(NUS_TX_CHAR);
+
+    await txCharacteristic.startNotifications();
+    txCharacteristic.addEventListener('characteristicvaluechanged', onDataReceived);
+
+    isConnected = true;
+    updateConnectionUI(true);
+    debugLog('Connected - sending SYNC command...');
+
+    // Wait a moment for BLE to stabilise, then request sync
+    setTimeout(async () => {
+      await sendCommand('SYNC');
+      debugLog('SYNC command sent');
+    }, 1000);
+
+  } catch (err) {
+    console.error('Connection failed:', err);
+    btn.disabled = false;
+    btn.textContent = 'Connect to Hub';
+    updateSyncMessage('Connection failed - try again');
+  }
+}
+
+function disconnect() {
+  if (bleDevice && bleDevice.gatt.connected) {
+    bleDevice.gatt.disconnect();
+  }
+  onDisconnected();
+}
+
+async function sendCommand(cmd) {
+  if (!rxCharacteristic) return;
+  try {
+    const encoder = new TextEncoder();
+    await rxCharacteristic.writeValue(encoder.encode(cmd + '\n'));
+    debugLog('CMD SENT: ' + cmd);
+  } catch (err) {
+    debugLog('CMD ERROR: ' + err.message);
+  }
+}
+
+async function requestSync() {
+  if (!isConnected) {
+    updateSyncMessage('Not connected - connect first');
+    return;
+  }
+  updateSyncMessage('Requesting sync...');
+  await sendCommand('SYNC');
+}
+
+function onDisconnected() {
+  isConnected = false;
+  isSyncing = false;
+  updateConnectionUI(false);
+  // Update hub card to offline
+  const badge = document.getElementById('hubStatusBadge');
+  if (badge) { badge.textContent = 'Offline'; badge.className = 'hub-status-badge offline'; }
+  const hubInd = document.getElementById('hubIndicator');
+  if (hubInd) hubInd.style.background = 'var(--danger)';
+  const hubBatt = document.getElementById('hubBattery');
+  if (hubBatt) hubBatt.style.display = 'none';
+}
+
+function updateConnectionUI(connected) {
+  const btn = document.getElementById('connectBtn');
+  const dot = document.getElementById('statusDot');
+  const status = document.getElementById('bleStatus');
+  btn.disabled = false;
+
+  if (connected) {
+    btn.textContent = 'Disconnect';
+    btn.classList.add('connected');
+    dot.className = 'status-dot connected';
+    status.innerHTML = '<span class="status-dot connected" id="statusDot"></span> Connected to Canopy Hub';
+  } else {
+    btn.textContent = 'Connect to Hub';
+    btn.classList.remove('connected');
+    dot.className = 'status-dot disconnected';
+    status.innerHTML = '<span class="status-dot disconnected" id="statusDot"></span> Disconnected';
+  }
+}
+
+// ============================================================
+//  BLE Data Handling
+// ============================================================
+let flushTimer = null;
+
+function debugLog(msg) {
+  const el = document.getElementById('debugLog');
+  el.textContent += msg + '\n';
+  el.scrollTop = el.scrollHeight;
+}
+
+function onDataReceived(event) {
+  const decoder = new TextDecoder('utf-8');
+  const chunk = decoder.decode(event.target.value);
+  debugLog('CHUNK: [' + chunk.replace(/\n/g,'\\n').replace(/\r/g,'\\r') + ']');
+  incomingBuffer += chunk;
+
+  // Process complete lines from the buffer
+  while (incomingBuffer.includes('\n')) {
+    const idx = incomingBuffer.indexOf('\n');
+    const line = incomingBuffer.substring(0, idx).replace(/\r/g, '').trim();
+    incomingBuffer = incomingBuffer.substring(idx + 1);
+    if (line.length > 0) handleLine(line);
+  }
+
+  // Flush timer for data without trailing newline
+  clearTimeout(flushTimer);
+  if (incomingBuffer.trim().length > 0) {
+    flushTimer = setTimeout(() => {
+      const leftover = incomingBuffer.trim();
+      if (leftover.length > 0) {
+        debugLog('FLUSH: [' + leftover + ']');
+        handleLine(leftover);
+      }
+      incomingBuffer = '';
+    }, 800);
+  }
+}
+
+function handleLine(line) {
+  debugLog('LINE: ' + line);
+
+  // During sync, accumulate lines
+  if (line === 'SYNC_START') {
+    isSyncing = true;
+    syncDataBuffer = '';
+    updateSyncMessage('Syncing data from hub...');
+    return;
+  }
+
+  if (line.startsWith('SYNC_END:')) {
+    isSyncing = false;
+    debugLog('SYNC BUFFER: [' + syncDataBuffer + ']');
+
+    // Parse all accumulated sync data at once
+    const newCount = parseSyncData(syncDataBuffer);
+    syncDataBuffer = '';
+
+    updateSyncMessage('Sync complete - ' + newCount + ' new events');
+    saveData();
+    renderAll();
+    // Request hub status after sync
+    setTimeout(() => sendCommand('STATUS'), 500);
+    return;
+  }
+
+  if (isSyncing) {
+    // Accumulate everything between SYNC_START and SYNC_END
+    syncDataBuffer += line + '\n';
+    return;
+  }
+
+  if (line.startsWith('ERROR:')) {
+    updateSyncMessage('Hub error: ' + line.substring(6));
+    return;
+  }
+
+  // Handle LIVE: events (not during sync)
+  if (line.startsWith('LIVE:')) {
+    const csvLine = line.substring(5);
+    const evt = parseCSVLine(csvLine);
+    if (evt) {
+      addEvent(evt);
+      debugLog('LIVE EVENT: ' + evt.nodeId + ' ' + evt.event);
+    }
+  }
+
+  // Handle hub status response
+  if (line.startsWith('HUB_STATUS:')) {
+    const parts = line.substring(11).split(',');
+    const hubV = parseFloat(parts[0]) || 0;
+    const sdReady = parts.length > 1 ? parseInt(parts[1]) : 0;
+    const evtCount = parts.length > 2 ? parseInt(parts[2]) : 0;
+    const uptimeMin = parts.length > 3 ? parseInt(parts[3]) : 0;
+
+    const hubPct = Math.max(0, Math.min(100, Math.round((hubV - 3.0) / (4.2 - 3.0) * 100)));
+    const hubColor = hubPct > 50 ? 'var(--accent)' : hubPct > 20 ? 'var(--warning)' : 'var(--danger)';
+
+    // Format uptime
+    let uptimeStr;
+    if (uptimeMin < 60) uptimeStr = uptimeMin + 'm';
+    else if (uptimeMin < 1440) uptimeStr = Math.floor(uptimeMin/60) + 'h ' + (uptimeMin%60) + 'm';
+    else uptimeStr = Math.floor(uptimeMin/1440) + 'd ' + Math.floor((uptimeMin%1440)/60) + 'h';
+
+    // Show hub card
+    document.getElementById('hubCard').style.display = 'block';
+    const badge = document.getElementById('hubStatusBadge');
+    badge.textContent = 'Online'; badge.className = 'hub-status-badge online';
+    const hubInd = document.getElementById('hubIndicator');
+    hubInd.style.background = 'var(--accent)';
+    document.getElementById('hubNameDisplay').textContent = '📡 ' + getNodeName('HUB');
+    document.getElementById('hubBattValue').innerHTML = hubPct + '%';
+    document.getElementById('hubBattValue').style.color = hubColor;
+    document.getElementById('hubSdStatus').textContent = sdReady ? 'Ready' : 'Error';
+    document.getElementById('hubSdStatus').style.color = sdReady ? 'var(--accent)' : 'var(--danger)';
+    document.getElementById('hubUptime').textContent = uptimeStr;
+
+    // Also update header battery
+    const hubEl = document.getElementById('hubBattery');
+    hubEl.style.display = 'inline';
+    hubEl.innerHTML = '&#128267; Hub ' + hubPct + '%';
+    hubEl.style.color = hubColor;
+
+    debugLog('Hub battery: ' + hubV.toFixed(2) + 'V (' + hubPct + '%), SD:' + sdReady + ', Events:' + evtCount + ', Uptime:' + uptimeStr);
+    return;
+  }
+}
+
+function parseSyncData(rawData) {
+  const lines = rawData.split('\n').filter(l => l.trim().length > 0);
+  let count = 0;
+  lastSyncTriggers = {};  // Reset per-sync counts
+
+  debugLog('PARSING ' + lines.length + ' sync lines');
+
+  for (const line of lines) {
+    debugLog('PARSE: [' + line + ']');
+    const evt = parseCSVLine(line);
+    if (evt) {
+      addEvent(evt);
+      count++;
+      if (evt.event === 'TRIGGERED') {
+        lastSyncTriggers[evt.nodeId] = (lastSyncTriggers[evt.nodeId] || 0) + 1;
+      }
+      debugLog('EVENT ADDED: ' + evt.nodeId + ' ' + evt.event);
+    } else {
+      debugLog('SKIPPED: could not parse');
+    }
+  }
+  return count;
+}
+
+function parseCSVLine(raw) {
+  // Skip header
+  if (raw.startsWith('Timestamp')) return null;
+
+  // Normalise: replace pipes with commas
+  const csvLine = raw.replace(/\|/g, ',');
+  if (csvLine.length < 10) return null;
+
+  const parts = csvLine.split(',');
+  debugLog('PARTS(' + parts.length + '): ' + JSON.stringify(parts));
+
+  if (parts.length >= 5) {
+    const evt = {
+      timestamp: parts[0],
+      nodeId:    parts[1],
+      purpose:   parts[2],
+      event:     parts[3],
+      battV:     parseFloat(parts[4]) || 0,
+      rssi:      parts.length >= 6 ? parseInt(parts[5]) : 0,
+      snr:       parts.length >= 7 ? parseInt(parts[6]) : 0,
+      syncedAt:  new Date().toISOString()
+    };
+    if (!evt.nodeId || !evt.event) return null;
+    if (!evt.nodeId.startsWith('NODE_')) { debugLog('SKIPPED: invalid nodeId ' + evt.nodeId); return null; }
+    return evt;
+  }
+  return null;
+}
+
+function addEvent(evt) {
+  const key = evt.timestamp + '_' + evt.nodeId + '_' + evt.event;
+  const exists = events.some(e => (e.timestamp + '_' + e.nodeId + '_' + e.event) === key);
+  if (!exists) {
+    events.push(evt);
+    updateNodeState(evt);
+    saveData();
+    renderAll();
+  }
+}
+
+// ============================================================
+//  Node State Tracking
+// ============================================================
+function updateNodeState(evt) {
+  if (!nodes[evt.nodeId]) {
+    nodes[evt.nodeId] = {
+      id: evt.nodeId,
+      purpose: evt.purpose,
+      lastSeen: evt.timestamp,
+      lastEvent: evt.event,
+      battV: evt.battV,
+      rssi: evt.rssi,
+      triggerCount: 0
+    };
+  }
+
+  const node = nodes[evt.nodeId];
+  node.lastSeen = evt.timestamp;
+  node.lastEvent = evt.event;
+  node.battV = evt.battV;
+  node.rssi = evt.rssi;
+  node.purpose = evt.purpose;
+  if (evt.event === 'TRIGGERED') node.triggerCount++;
+}
+
+// ============================================================
+//  Rendering
+// ============================================================
+// Filter state (must be before renderNodes)
+let activeNodeFilters = new Set();
+let activeDayFilters = new Set();
+
+function renderAll() {
+  renderSummary();
+  renderNodes();
+  renderEventLog();
+  renderChart();
+}
+
+function renderSummary() {
+  document.getElementById('activeNodes').textContent = Object.keys(nodes).length;
+  // Update hub card totals
+  const totalTrigs = events.filter(e => e.event === 'TRIGGERED').length;
+  const el = document.getElementById('hubTotalTriggers');
+  if (el) el.textContent = totalTrigs;
+  // Update hub last sync count
+  const syncTrigs = Object.values(lastSyncTriggers).reduce((a, b) => a + b, 0);
+  const syncEl = document.getElementById('hubEventCount');
+  if (syncEl) syncEl.textContent = syncTrigs;
+}
+
+function renderNodes() {
+  const container = document.getElementById('nodesContainer');
+  const nodeList = Object.values(nodes);
+  if (nodeList.length === 0) {
+    container.innerHTML = '<div class="node-card" style="border-style:dashed;text-align:center;color:var(--text-dim);padding:32px;">No nodes seen yet</div>';
+    return;
+  }
+  container.innerHTML = nodeList.map(node => {
+    const battPct = Math.max(0, Math.min(100, Math.round((node.battV - 3.0) / (4.2 - 3.0) * 100)));
+    const battColor = battPct > 50 ? 'var(--accent)' : battPct > 20 ? 'var(--warning)' : 'var(--danger)';
+    const sigStrength = node.rssi > -70 ? 'Strong' : node.rssi > -90 ? 'Good' : node.rssi > -110 ? 'Weak' : 'Poor';
+    const selected = activeNodeFilters.has(node.id) ? ' selected' : '';
+    const trigCount = lastSyncTriggers[node.id] || 0;
+    return '<div class="node-card' + selected + '" onclick="toggleNodeFilter(\'' + node.id + '\')"><div class="active-indicator"></div>' +
+      '<div class="node-header"><span class="node-name">' + getNodeName(node.id) + '</span>' +
+      '<span class="node-purpose ' + node.purpose + '">' + node.purpose + '</span></div>' +
+      '<div class="node-stats">' +
+      '<div class="node-stat"><div class="stat-label">Battery</div><div class="stat-value" style="color:' + battColor + '">' + battPct + '%</div></div>' +
+      '<div class="node-stat"><div class="stat-label">Signal</div><div class="stat-value" style="font-size:0.8rem;">' + sigStrength + ' ' + node.rssi + 'dBm</div></div>' +
+      '<div class="node-stat"><div class="stat-label">Last Seen</div><div class="stat-value" style="font-size:0.8rem;">' + (node.lastSeen.split(' ')[1] || node.lastSeen) + '</div></div>' +
+      '<div class="node-stat"><div class="stat-label">Triggers</div><div class="stat-value">' + trigCount + '</div></div>' +
+      '</div></div>';
+  }).join('');
+}
+
+function renderEventLog() {
+  const container = document.getElementById('eventList');
+  const count = document.getElementById('eventLogCount');
+  if (events.length === 0) {
+    container.innerHTML = '<div style="text-align:center;color:var(--text-dim);padding:32px;font-size:0.85rem;">No events recorded yet</div>';
+    count.textContent = '0 events';
+    return;
+  }
+  count.textContent = events.length + ' events';
+  const recent = events.slice(-200).reverse();
+  container.innerHTML = recent.map(evt =>
+    '<div class="event-item"><span class="time">' + evt.timestamp + '</span>' +
+    '<span class="node">' + getNodeName(evt.nodeId) + '</span>' +
+    '<span class="event-type ' + evt.event + '">' + evt.event + '</span>' +
+    '<span class="rssi">' + evt.rssi + 'dBm</span></div>'
+  ).join('');
+}
+
+// ============================================================
+//  Activity Chart
+// ============================================================
+const CHART_COLORS = ['#22c55e','#3b82f6','#f59e0b','#8b5cf6','#ec4899','#06b6d4','#f97316'];
+
+
+
+function toggleNodeFilter(nodeId) {
+  if (activeNodeFilters.has(nodeId)) activeNodeFilters.delete(nodeId);
+  else activeNodeFilters.add(nodeId);
+  renderNodes();
+  renderChart();
+}
+function toggleDayFilter(day) {
+  if (activeDayFilters.has(day)) activeDayFilters.delete(day);
+  else activeDayFilters.add(day);
+  renderChart();
+}
+
+function renderChart() {
+  const canvas = document.getElementById('activityChart');
+  const ctx = canvas.getContext('2d');
+  canvas.width = canvas.offsetWidth * 2;
+  canvas.height = 500;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  let triggers = events.filter(e => e.event === 'TRIGGERED');
+  if (activeNodeFilters.size > 0) {
+    triggers = triggers.filter(e => activeNodeFilters.has(e.nodeId));
+  }
+  if (triggers.length === 0) {
+    ctx.fillStyle = '#94a3b8'; ctx.font = '24px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('No trigger data yet', canvas.width/2, canvas.height/2);
+    document.getElementById('chartLegend').innerHTML = '';
+    document.getElementById('chartFilters').innerHTML = '';
+    return;
+  }
+
+  const today = new Date();
+  const days = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(today); d.setDate(d.getDate() - i);
+    days.push(d.toISOString().split('T')[0]);
+  }
+
+  const buckets = {};
+  days.forEach(day => { buckets[day] = new Array(96).fill(0); });
+  triggers.forEach(evt => {
+    const date = evt.timestamp.split(' ')[0];
+    const time = evt.timestamp.split(' ')[1];
+    if (!buckets[date]) return;
+    const [h, m] = time.split(':').map(Number);
+    const slot = Math.floor((h * 60 + m) / 15);
+    if (slot >= 0 && slot < 96) buckets[date][slot]++;
+  });
+
+  // Determine which days to draw
+  const visibleDays = activeDayFilters.size > 0 ? days.filter(d => activeDayFilters.has(d)) : days;
+
+  let maxVal = 1;
+  visibleDays.forEach(day => { maxVal = Math.max(maxVal, ...buckets[day]); });
+
+  const pad = {top:20, right:20, bottom:40, left:50};
+  const w = canvas.width - pad.left - pad.right;
+  const h = canvas.height - pad.top - pad.bottom;
+
+  ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 1;
+  const ySteps = Math.min(maxVal, 5);
+  for (let i = 0; i <= ySteps; i++) {
+    const y = pad.top + h - (i/ySteps)*h;
+    ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(pad.left+w, y); ctx.stroke();
+    ctx.fillStyle = '#94a3b8'; ctx.font = '20px sans-serif'; ctx.textAlign = 'right';
+    ctx.fillText(Math.round(i*maxVal/ySteps), pad.left-8, y+6);
+  }
+  ctx.textAlign = 'center';
+  for (let hr = 0; hr < 24; hr += 3) {
+    const x = pad.left + (hr/24)*w;
+    ctx.fillStyle = '#94a3b8'; ctx.font = '18px sans-serif';
+    ctx.fillText(hr.toString().padStart(2,'0')+':00', x, pad.top+h+28);
+    ctx.beginPath(); ctx.moveTo(x, pad.top); ctx.lineTo(x, pad.top+h); ctx.stroke();
+  }
+
+  // Draw lines for visible days
+  visibleDays.forEach((day, vi) => {
+    const di = days.indexOf(day);
+    const data = buckets[day];
+    const color = CHART_COLORS[di % CHART_COLORS.length];
+    ctx.strokeStyle = color;
+    ctx.lineWidth = (activeDayFilters.size === 0 && di === days.length-1) ? 4 : 3;
+    ctx.globalAlpha = (activeDayFilters.size === 0 && di < days.length-1) ? 0.4 : 1;
+    ctx.beginPath();
+    for (let s = 0; s < 96; s++) {
+      const x = pad.left + (s/96)*w;
+      const y = pad.top + h - (data[s]/maxVal)*h;
+      s === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  });
+
+  // Build filter bar
+  const filtersEl = document.getElementById('chartFilters');
+  let filterHTML = '<span class="filter-label">Days</span>';
+
+  filterHTML += days.map((day, di) => {
+    const color = CHART_COLORS[di % CHART_COLORS.length];
+    const isActive = activeDayFilters.has(day);
+    const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    const label = di === days.length-1 ? 'Today' : dayNames[new Date(day+'T12:00').getDay()];
+    const pillStyle = isActive ? 'background:'+color+';color:#000;border-color:'+color : '';
+    return '<span class="day-pill' + (isActive?' active':'') + '" style="'+pillStyle+'" onclick="toggleDayFilter(\''+day+'\')"><span class="dot" style="background:'+color+'"></span>'+label+'</span>';
+  }).join('');
+
+  filtersEl.innerHTML = filterHTML;
+}
+
+function updateSyncMessage(msg) {
+  document.getElementById('syncMessage').textContent = msg;
+}
+
+// ============================================================
+//  Settings
+// ============================================================
+function openSettings() {
+  const container = document.getElementById('nodeNameSettings');
+  const nodeList = Object.values(nodes);
+  let html = '<label>Hub Name</label>' +
+    '<input type="text" id="name_HUB" value="' + (nodeNames['HUB']||'') + '" placeholder="Canopy Hub">';
+  if (nodeList.length === 0) {
+    html += '<p style="color:var(--text-dim);font-size:0.85rem;margin-top:12px;">No nodes yet. Sync first.</p>';
+  } else {
+    html += nodeList.map(n =>
+      '<label>' + n.id + ' (' + n.purpose + ')</label>' +
+      '<input type="text" id="name_' + n.id + '" value="' + (nodeNames[n.id]||'') + '" placeholder="' + n.id + '">'
+    ).join('');
+  }
+  container.innerHTML = html;
+  document.getElementById('settingsModal').classList.add('open');
+}
+function closeSettings() { document.getElementById('settingsModal').classList.remove('open'); }
+function saveSettings() {
+  // Save hub name
+  const hubInput = document.getElementById('name_HUB');
+  if (hubInput) { const v = hubInput.value.trim(); if (v) nodeNames['HUB'] = v; else delete nodeNames['HUB']; }
+  // Save node names
+  Object.values(nodes).forEach(n => {
+    const input = document.getElementById('name_' + n.id);
+    if (input) { const v = input.value.trim(); if (v) nodeNames[n.id] = v; else delete nodeNames[n.id]; }
+  });
+  localStorage.setItem('canopy_node_names', JSON.stringify(nodeNames));
+  // Update hub name display
+  document.getElementById('hubNameDisplay').textContent = '📡 ' + getNodeName('HUB');
+  closeSettings(); renderAll();
+}
+
+// ============================================================
+//  Data Persistence
+// ============================================================
+function saveData() {
+  localStorage.setItem('canopy_events', JSON.stringify(events));
+  localStorage.setItem('canopy_nodes', JSON.stringify(nodes));
+}
+function clearAllData() {
+  if (confirm('Clear all stored event data?')) {
+    events = []; nodes = {}; saveData(); renderAll();
+    updateSyncMessage('Data cleared');
+  }
+}
+
+// ============================================================
+//  Init
+// ============================================================
+events.forEach(evt => updateNodeState(evt));
+renderAll();
+
+// iOS detection
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+if (isIOS) {
+  document.getElementById('iosWarning').style.display = 'block';
+  document.getElementById('connectBtn').disabled = true;
+  document.getElementById('connectBtn').textContent = 'Not Supported on iOS';
+  updateSyncMessage('Apple does not support Web Bluetooth — use Android or desktop Chrome');
+} else if (!navigator.bluetooth) {
+  document.getElementById('connectBtn').disabled = true;
+  document.getElementById('connectBtn').textContent = 'BLE Not Supported';
+  updateSyncMessage('Web Bluetooth not supported — use Chrome on Android or desktop');
+}
+window.addEventListener('resize', () => { if (events.length > 0) renderChart(); });
+
+// PWA Install prompt
+let deferredInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  document.getElementById('installBtn').style.display = 'inline-block';
+});
+function installApp() {
+  if (deferredInstallPrompt) {
+    deferredInstallPrompt.prompt();
+    deferredInstallPrompt.userChoice.then(() => {
+      deferredInstallPrompt = null;
+      document.getElementById('installBtn').style.display = 'none';
+    });
+  }
+}
+// Hide install button if already installed as PWA
+if (window.matchMedia('(display-mode: standalone)').matches) {
+  document.getElementById('installBtn').style.display = 'none';
+}
+
+// Register service worker for offline PWA
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+
+// Dismiss splash screen
+setTimeout(() => {
+  const splash = document.getElementById('splash');
+  splash.classList.add('hide');
+  setTimeout(() => splash.remove(), 500);
+}, 800);
+</script>
+</body>
+</html>
+

@@ -1,0 +1,17 @@
+{
+  "name": "Canopy Sensors",
+  "short_name": "Canopy",
+  "description": "Field sensor monitoring dashboard",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0a0f1a",
+  "theme_color": "#22c55e",
+  "icons": [
+    {
+      "src": "logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
